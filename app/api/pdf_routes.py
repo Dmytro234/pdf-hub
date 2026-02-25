@@ -21,7 +21,7 @@ from app.services.storage import (
     safe_filename,
 )
 
-router = APIRouter(prefix="/api/pdf", tags=["pdf"])
+router = APIRouter(prefix="/api/pdf")
 
 
 def _save_upload(upl: UploadFile, dest: Path):
@@ -31,15 +31,16 @@ def _save_upload(upl: UploadFile, dest: Path):
     dest.write_bytes(content)
 
 
-@router.post("/merge")
+@router.post("/merge", tags=["PDF • Merge"], summary="Merge PDF files")
 async def api_merge(files: list[UploadFile] = File(...)):
     ensure_dirs()
     validate_upload_count(len(files))
+
     job = new_job_id()
     udir = job_upload_dir(job)
     odir = job_output_dir(job)
 
-    inputs = []
+    inputs: list[Path] = []
     for f in files:
         p = udir / safe_filename(f.filename or "file.pdf")
         _save_upload(f, p)
@@ -50,7 +51,11 @@ async def api_merge(files: list[UploadFile] = File(...)):
     return FileResponse(out, filename="merged.pdf")
 
 
-@router.post("/split")
+@router.post(
+    "/split",
+    tags=["PDF • Split"],
+    summary="Split PDF (range, custom pages, or split to ZIP by pages)",
+)
 async def api_split(
     file: UploadFile = File(...),
     mode: str = Form("range"),  # range|by_pages|custom
@@ -59,6 +64,7 @@ async def api_split(
     pages: str = Form(""),
 ):
     ensure_dirs()
+
     job = new_job_id()
     udir = job_upload_dir(job)
     odir = job_output_dir(job)
@@ -70,6 +76,7 @@ async def api_split(
         out = odir / "split.zip"
         split_by_pages(inp, out)
         return FileResponse(out, filename="split.zip")
+
     if mode == "custom":
         out = odir / "split.pdf"
         split_custom(inp, out, parse_pages_expr(pages))
@@ -80,9 +87,13 @@ async def api_split(
     return FileResponse(out, filename="split.pdf")
 
 
-@router.post("/compress")
-async def api_compress(file: UploadFile = File(...), level: str = Form("medium")):
+@router.post("/compress", tags=["PDF • Compress"], summary="Compress PDF")
+async def api_compress(
+    file: UploadFile = File(...),
+    level: str = Form("medium"),  # light|medium|strong
+):
     ensure_dirs()
+
     job = new_job_id()
     udir = job_upload_dir(job)
     odir = job_output_dir(job)
@@ -95,9 +106,14 @@ async def api_compress(file: UploadFile = File(...), level: str = Form("medium")
     return FileResponse(out, filename="compressed.pdf")
 
 
-@router.post("/convert/docx-to-pdf")
+@router.post(
+    "/convert/docx-to-pdf",
+    tags=["PDF • Convert"],
+    summary="Convert DOCX to PDF",
+)
 async def api_docx_to_pdf(file: UploadFile = File(...)):
     ensure_dirs()
+
     job = new_job_id()
     udir = job_upload_dir(job)
     odir = job_output_dir(job)
@@ -110,9 +126,14 @@ async def api_docx_to_pdf(file: UploadFile = File(...)):
     return FileResponse(out, filename="converted.pdf")
 
 
-@router.post("/convert/pdf-to-docx")
+@router.post(
+    "/convert/pdf-to-docx",
+    tags=["PDF • Convert"],
+    summary="Convert PDF to DOCX",
+)
 async def api_pdf_to_docx(file: UploadFile = File(...)):
     ensure_dirs()
+
     job = new_job_id()
     udir = job_upload_dir(job)
     odir = job_output_dir(job)
@@ -125,15 +146,20 @@ async def api_pdf_to_docx(file: UploadFile = File(...)):
     return FileResponse(out, filename="converted.docx")
 
 
-@router.post("/convert/images-to-pdf")
+@router.post(
+    "/convert/images-to-pdf",
+    tags=["PDF • Convert"],
+    summary="Convert images (JPG/PNG) to PDF",
+)
 async def api_images_to_pdf(files: list[UploadFile] = File(...)):
     ensure_dirs()
     validate_upload_count(len(files))
+
     job = new_job_id()
     udir = job_upload_dir(job)
     odir = job_output_dir(job)
 
-    images = []
+    images: list[Path] = []
     for f in files:
         p = udir / safe_filename(f.filename or "image")
         _save_upload(f, p)
@@ -144,7 +170,11 @@ async def api_images_to_pdf(files: list[UploadFile] = File(...)):
     return FileResponse(out, filename="images.pdf")
 
 
-@router.post("/encrypt")
+@router.post(
+    "/encrypt",
+    tags=["PDF • Security"],
+    summary="Encrypt PDF (password + permissions)",
+)
 async def api_encrypt(
     file: UploadFile = File(...),
     user_password: str = Form(...),
@@ -155,6 +185,7 @@ async def api_encrypt(
     allow_annotate: bool = Form(True),
 ):
     ensure_dirs()
+
     job = new_job_id()
     udir = job_upload_dir(job)
     odir = job_output_dir(job)
@@ -176,12 +207,14 @@ async def api_encrypt(
     return FileResponse(out, filename="protected.pdf")
 
 
-@router.post("/decrypt")
-async def api_decrypt(
-    file: UploadFile = File(...),
-    password: str = Form(...),
-):
+@router.post(
+    "/decrypt",
+    tags=["PDF • Security"],
+    summary="Decrypt PDF (remove password)",
+)
+async def api_decrypt(file: UploadFile = File(...), password: str = Form(...)):
     ensure_dirs()
+
     job = new_job_id()
     udir = job_upload_dir(job)
     odir = job_output_dir(job)
